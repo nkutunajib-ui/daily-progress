@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Progress</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0d0f;
+  --surface: #141417;
+  --surface2: #1c1c21;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #f0f0ee;
+  --muted: #7a7a82;
+  --accent: #c8f06e;
+  --accent-dim: rgba(200,240,110,0.12);
+  --danger: #f06e6e;
+  --danger-dim: rgba(240,110,110,0.13);
+  --warn: #f0b96e;
+  --warn-dim: rgba(240,185,110,0.12);
+  --blue: #6ea8f0;
+  --blue-dim: rgba(110,168,240,0.12);
+  --purple: #b06ef0;
+  --purple-dim: rgba(176,110,240,0.12);
+  --radius: 10px;
+  --radius-lg: 16px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  min-height: 100vh;
+  padding: 2rem 1rem 5rem;
+}
+.mono { font-family: 'DM Mono', monospace; }
+
+/* SHAME OVERLAY */
+#shame-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #0a0003;
+  z-index: 9999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 2rem;
+}
+#shame-overlay.active { display: flex; }
+.shame-title {
+  font-size: clamp(1.4rem, 5vw, 2rem);
+  font-weight: 800;
+  color: var(--danger);
+  text-align: center;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.shame-reason {
+  font-size: 13px;
+  font-family: 'DM Mono', monospace;
+  color: rgba(240,110,110,0.6);
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+.shame-timer {
+  font-size: clamp(3rem, 12vw, 5rem);
+  font-weight: 800;
+  font-family: 'DM Mono', monospace;
+  color: var(--danger);
+  letter-spacing: 0.02em;
+}
+.shame-sub {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  text-align: center;
+  max-width: 320px;
+  line-height: 1.8;
+}
+.btn-shame-close {
+  display: none;
+  margin-top: 1rem;
+  background: var(--danger);
+  color: #0a0003;
+  border: none;
+  border-radius: var(--radius);
+  padding: 12px 28px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* HEADER */
+.header {
+  max-width: 680px;
+  margin: 0 auto 2rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.header-left h1 {
+  font-size: clamp(1.8rem, 5vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.header-left h1 span { color: var(--accent); }
+.date-str {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 0.04em;
+}
+.streak-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--accent-dim);
+  border: 1px solid rgba(200,240,110,0.2);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  min-width: 72px;
+}
+.streak-badge .num { font-size: 28px; font-weight: 800; color: var(--accent); line-height: 1; }
+.streak-badge .lbl { font-size: 11px; color: var(--accent); opacity: 0.7; margin-top: 3px; font-family: 'DM Mono', monospace; letter-spacing: 0.06em; }
+
+/* SCORE RING */
+.score-section {
+  max-width: 680px;
+  margin: 0 auto 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem;
+}
+.score-ring-wrap { position: relative; width: 80px; height: 80px; flex-shrink: 0; }
+.score-ring-wrap svg { transform: rotate(-90deg); }
+.score-ring-bg { fill: none; stroke: var(--surface2); stroke-width: 7; }
+.score-ring-fill { fill: none; stroke: var(--accent); stroke-width: 7; stroke-linecap: round; transition: stroke-dashoffset 0.6s cubic-bezier(0.4,0,0.2,1); }
+.score-ring-fill.low { stroke: var(--danger); }
+.score-ring-fill.mid { stroke: var(--warn); }
+.score-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.score-pct { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1; }
+.score-info { flex: 1; }
+.score-info h2 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.score-info p { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; line-height: 1.7; }
+
+/* WEEKLY CHART */
+.chart-wrap {
+  max-width: 680px;
+  margin: 0 auto 2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.25rem 1rem;
+}
+.chart-title { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 1rem; }
+.chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 64px; }
+.chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+.chart-bar { width: 100%; border-radius: 4px 4px 0 0; transition: height 0.4s ease; min-height: 4px; background: var(--surface2); }
+.chart-bar.today { background: var(--accent); }
+.chart-bar.partial { background: rgba(200,240,110,0.35); }
+.chart-day { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 4px; }
+.chart-day.today-lbl { color: var(--accent); }
+
+/* SECTION LABEL */
+.section-label {
+  max-width: 680px;
+  margin: 0 auto 8px;
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0 2px;
+}
+
+/* TASK LIST */
+.task-list { max-width: 680px; margin: 0 auto 2rem; display: flex; flex-direction: column; gap: 6px; }
+
+/* BASE TASK CARD */
+.task-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  transition: border-color 0.2s;
+}
+.task-card.done { opacity: 0.55; }
+.task-card.failed { border-color: rgba(240,110,110,0.35); background: rgba(240,110,110,0.04); }
+
+/* PRAYER / BOOLEAN CARD */
+.bool-card { display: flex; align-items: center; gap: 12px; }
+.task-check {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.2s, background 0.2s;
+}
+.task-check:hover { border-color: var(--accent); }
+.task-card.done .task-check { background: var(--accent); border-color: var(--accent); }
+.task-card.failed .task-check { background: var(--danger); border-color: var(--danger); }
+.check-inner { display: none; }
+.task-card.done .check-inner, .task-card.failed .check-inner { display: block; }
+.task-name { font-size: 14px; font-weight: 600; flex: 1; }
+.task-badge {
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  padding: 3px 8px;
+  border-radius: 99px;
+  letter-spacing: 0.04em;
+}
+.badge-prayer { background: var(--purple-dim); color: var(--purple); }
+.badge-quran { background: var(--blue-dim); color: var(--blue); }
+.badge-warn { background: var(--danger-dim); color: var(--danger); }
+
+/* TRACKER CARD (protein, kcal, istighfar) */
+.tracker-card .tracker-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
+.tracker-card .tracker-name { font-size: 14px; font-weight: 600; }
+.tracker-card .tracker-val {
+  font-size: 13px; font-family: 'DM Mono', monospace; color: var(--accent);
+}
+.tracker-bar-track { height: 5px; background: var(--surface2); border-radius: 99px; overflow: hidden; margin-bottom: 10px; }
+.tracker-bar-fill { height: 100%; border-radius: 99px; background: var(--accent); transition: width 0.3s ease; }
+.tracker-input-row { display: flex; gap: 8px; align-items: center; }
+.tracker-input-row input[type="number"] {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 8px 12px; color: var(--text);
+  font-family: 'DM Mono', monospace; font-size: 13px; outline: none;
+  transition: border-color 0.2s;
+}
+.tracker-input-row input[type="number"]:focus { border-color: var(--accent); }
+.tracker-input-row input[type="number"]::-webkit-inner-spin-button { opacity: 0.4; }
+.tracker-unit { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; white-space: nowrap; }
+
+/* QURAN CARD */
+.quran-card .quran-body { display: flex; flex-direction: column; gap: 10px; }
+.quran-top { display: flex; align-items: center; gap: 12px; }
+.quran-upload-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn-upload {
+  background: var(--blue-dim); color: var(--blue);
+  border: 1px solid rgba(110,168,240,0.25);
+  border-radius: 6px; padding: 8px 14px;
+  font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: opacity 0.2s;
+}
+.btn-upload:hover { opacity: 0.8; }
+.audio-player { flex: 1; min-width: 160px; }
+.audio-player audio { width: 100%; height: 32px; }
+.audio-filename { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+.btn-confirm-quran {
+  background: var(--accent); color: #0d0d0f;
+  border: none; border-radius: 6px;
+  padding: 8px 16px; font-family: 'Syne', sans-serif;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: opacity 0.2s; white-space: nowrap;
+}
+.btn-confirm-quran:hover { opacity: 0.85; }
+.btn-confirm-quran:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* YES/NO CARD */
+.yesno-card .yesno-body { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.yesno-card .task-name { flex: 1; min-width: 160px; }
+.yesno-btns { display: flex; gap: 6px; }
+.btn-yn {
+  padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border2);
+  background: none; color: var(--muted);
+  font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all 0.15s; letter-spacing: 0.03em;
+}
+.btn-yn.yes.active { background: var(--accent-dim); border-color: rgba(200,240,110,0.4); color: var(--accent); }
+.btn-yn.no.active { background: var(--danger-dim); border-color: rgba(240,110,110,0.4); color: var(--danger); }
+.btn-yn:hover { border-color: var(--border2); opacity: 0.8; }
+
+/* CUSTOM TASKS SECTION */
+.add-section { max-width: 680px; margin: 0 auto 1.5rem; }
+.add-row { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
+.add-row input[type="text"] {
+  flex: 1; min-width: 180px;
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 11px 14px;
+  color: var(--text); font-family: 'Syne', sans-serif; font-size: 14px;
+  outline: none; transition: border-color 0.2s;
+}
+.add-row input[type="text"]:focus { border-color: var(--accent); }
+.add-row input[type="text"]::placeholder { color: var(--muted); }
+.add-row input[type="date"] {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 11px 10px;
+  color: var(--muted); font-family: 'DM Mono', monospace; font-size: 12px;
+  outline: none; cursor: pointer; width: 138px; color-scheme: dark;
+  transition: border-color 0.2s;
+}
+.add-row input[type="date"]:focus { border-color: var(--accent); }
+.btn-add {
+  background: var(--accent); color: #0d0d0f; border: none;
+  border-radius: var(--radius); padding: 11px 18px;
+  font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700;
+  cursor: pointer; white-space: nowrap; transition: opacity 0.2s, transform 0.1s;
+}
+.btn-add:hover { opacity: 0.88; }
+.btn-add:active { transform: scale(0.97); }
+
+/* CUSTOM TASK ITEMS */
+.custom-task {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); display: flex; align-items: center;
+  padding: 13px 14px; gap: 12px;
+  transition: border-color 0.2s, opacity 0.2s;
+}
+.custom-task.done { opacity: 0.5; }
+.custom-task.overdue { border-color: rgba(240,110,110,0.3); }
+.custom-task.due-today { border-color: rgba(240,185,110,0.3); }
+.custom-task .task-body { flex: 1; min-width: 0; }
+.custom-task .task-name2 { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.custom-task.done .task-name2 { text-decoration: line-through; color: var(--muted); }
+.task-due { font-size: 11px; font-family: 'DM Mono', monospace; margin-top: 2px; }
+.due-overdue { color: var(--danger); }
+.due-today-txt { color: var(--warn); }
+.due-future { color: var(--muted); }
+.btn-edit {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; padding: 4px 6px; border-radius: 6px;
+  font-size: 11px; font-family: 'DM Mono', monospace;
+  letter-spacing: 0.04em; transition: color 0.2s, background 0.2s; flex-shrink: 0;
+}
+.btn-edit:hover { color: var(--accent); background: var(--accent-dim); }
+.edit-row { display: flex; gap: 6px; flex: 1; align-items: center; flex-wrap: wrap; }
+.edit-row input[type="text"] {
+  flex: 1; min-width: 120px; background: var(--bg);
+  border: 1px solid rgba(200,240,110,0.3); border-radius: 6px;
+  padding: 6px 10px; color: var(--text);
+  font-family: 'Syne', sans-serif; font-size: 13px; outline: none;
+}
+.edit-row input[type="date"] {
+  background: var(--bg); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 6px 8px; color: var(--muted);
+  font-family: 'DM Mono', monospace; font-size: 11px; outline: none;
+  color-scheme: dark; width: 130px;
+}
+.btn-save {
+  background: var(--accent); color: #0d0d0f; border: none;
+  border-radius: 6px; padding: 6px 12px;
+  font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: opacity 0.2s;
+}
+.btn-save:hover { opacity: 0.85; }
+
+.complete-banner {
+  max-width: 680px; margin: 0 auto 1.5rem;
+  background: var(--accent-dim); border: 1px solid rgba(200,240,110,0.25);
+  border-radius: var(--radius); padding: 12px 16px;
+  font-size: 13px; color: var(--accent); font-family: 'DM Mono', monospace;
+  text-align: center; display: none; letter-spacing: 0.03em;
+}
+.complete-banner.show { display: block; }
+
+/* END OF DAY REVIEW OVERLAY */
+#eod-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(13,13,15,0.97); z-index: 8888;
+  flex-direction: column; align-items: center; justify-content: flex-start;
+  padding: 2rem 1rem 3rem; overflow-y: auto;
+}
+#eod-overlay.active { display: flex; }
+.eod-inner { width: 100%; max-width: 480px; display: flex; flex-direction: column; align-items: center; }
+.eod-header { text-align: center; margin-bottom: 1.5rem; width: 100%; }
+.eod-header h2 { font-size: clamp(1.4rem,5vw,1.9rem); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; }
+.eod-header h2 span { color: var(--warn); }
+.eod-header p { font-size: 13px; color: var(--muted); font-family: 'DM Mono', monospace; line-height: 1.7; }
+.eod-list { width: 100%; display: flex; flex-direction: column; gap: 6px; margin-bottom: 1.5rem; }
+.eod-item {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 11px 14px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; font-weight: 600;
+}
+.eod-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex-shrink: 0; }
+.eod-score-row {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.5rem; font-family: 'DM Mono', monospace; font-size: 13px; color: var(--muted);
+}
+.eod-score-num { font-size: 22px; font-weight: 800; color: var(--warn); }
+.btn-eod-continue {
+  background: var(--surface2); color: var(--text); border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 13px 32px;
+  font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: opacity 0.2s; width: 100%;
+}
+.btn-eod-continue:hover { opacity: 0.8; }
+.btn-eod-continue.all-done { background: var(--accent); color: #0d0d0f; border-color: transparent; }
+
+/* HISTORY */
+.history-wrap { max-width: 680px; margin: 0 auto 2rem; }
+.history-day {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 6px; overflow: hidden;
+}
+.history-day-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; cursor: pointer; user-select: none;
+}
+.history-date { font-size: 13px; font-family: 'DM Mono', monospace; color: var(--muted); flex: 1; }
+.history-bar-track { width: 90px; height: 4px; background: var(--surface2); border-radius: 99px; overflow: hidden; flex-shrink: 0; }
+.history-bar-fill { height: 100%; border-radius: 99px; }
+.hbf-high { background: var(--accent); }
+.hbf-mid { background: var(--warn); }
+.hbf-low { background: var(--danger); }
+.history-pct { font-size: 12px; font-family: 'DM Mono', monospace; width: 36px; text-align: right; flex-shrink: 0; }
+.hpct-high { color: var(--accent); }
+.hpct-mid { color: var(--warn); }
+.hpct-low { color: var(--danger); }
+.history-chevron { font-size: 10px; color: var(--muted); transition: transform 0.2s; flex-shrink: 0; }
+.history-day.open .history-chevron { transform: rotate(180deg); }
+.history-detail { display: none; padding: 0 16px 14px; border-top: 1px solid var(--border); }
+.history-day.open .history-detail { display: block; }
+.history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 12px; }
+.hcell { background: var(--surface2); border-radius: 8px; padding: 10px 12px; }
+.hcell .hc-lbl { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; letter-spacing: 0.05em; margin-bottom: 4px; }
+.hcell .hc-val { font-size: 13px; font-weight: 600; }
+.hc-pass { color: var(--accent); }
+.hc-fail { color: var(--danger); }
+.hc-warn { color: var(--warn); }
+.hc-neutral { color: var(--text); }
+.h-prayer-pips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+.pip { font-size: 10px; font-family: 'DM Mono', monospace; padding: 2px 7px; border-radius: 99px; }
+.pip-done { background: var(--accent-dim); color: var(--accent); }
+.pip-miss { background: var(--danger-dim); color: var(--danger); }
+.history-empty { text-align: center; font-size: 13px; color: var(--muted); font-family: 'DM Mono', monospace; padding: 1.5rem 0; }
+
+/* QADHA TRACKER */
+.qadha-wrap {
+  max-width: 680px;
+  margin: 0 auto 2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.qadha-header {
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.qadha-header h3 { font-size: 14px; font-weight: 700; }
+.qadha-overall {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 180px;
+}
+.qadha-overall-bar-track {
+  flex: 1;
+  height: 5px;
+  background: var(--surface2);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.qadha-overall-bar-fill {
+  height: 100%;
+  background: var(--purple);
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+.qadha-overall-pct {
+  font-size: 12px;
+  font-family: 'DM Mono', monospace;
+  color: var(--purple);
+  white-space: nowrap;
+}
+.qadha-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.qadha-row:last-child { border-bottom: none; }
+.qadha-prayer-name {
+  font-size: 13px;
+  font-weight: 600;
+  width: 68px;
+  flex-shrink: 0;
+}
+.qadha-mini-bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--surface2);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.qadha-mini-bar-fill {
+  height: 100%;
+  background: var(--purple);
+  border-radius: 99px;
+  transition: width 0.3s ease;
+  opacity: 0.7;
+}
+.qadha-remaining {
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: var(--muted);
+  width: 80px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.qadha-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.qadha-input-wrap input[type="number"] {
+  width: 58px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  outline: none;
+  text-align: center;
+  transition: border-color 0.2s;
+}
+.qadha-input-wrap input[type="number"]:focus { border-color: var(--purple); }
+.qadha-input-wrap input[type="number"]::-webkit-inner-spin-button { opacity: 0.4; }
+.btn-qadha-log {
+  background: var(--purple-dim);
+  color: var(--purple);
+  border: 1px solid rgba(176,110,240,0.25);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+.btn-qadha-log:hover { opacity: 0.8; }
+.qadha-done-badge {
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  color: var(--purple);
+  background: var(--purple-dim);
+  padding: 2px 7px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+
+@media (max-width: 500px) {
+  .score-section { flex-direction: column; align-items: flex-start; }
+  .add-row input[type="date"] { width: 100%; }
+  .btn-add { width: 100%; }
+  .qadha-remaining { display: none; }
+}
+</style>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBG5HJ34VxYf80Kq3Sb_M4DqofgPehd1cM",
+    authDomain: "daily-progress-a3dc7.firebaseapp.com",
+    projectId: "daily-progress-a3dc7",
+    storageBucket: "daily-progress-a3dc7.firebasestorage.app",
+    messagingSenderId: "738373200458",
+    appId: "1:738373200458:web:6554d927528420a3d254b3"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const USER_ID = 'najib';
+
+  window._db = db;
+  window._doc = doc;
+  window._setDoc = setDoc;
+  window._getDoc = getDoc;
+  window._onSnapshot = onSnapshot;
+  window._USER_ID = USER_ID;
+  window._firebaseReady = true;
+
+  // Listen for real-time changes from other devices
+  onSnapshot(doc(db, 'users', USER_ID, 'data', 'state'), (snap) => {
+    if (snap.exists() && window._externalUpdate) {
+      const remote = snap.data();
+      const local = window._state;
+      // Only update if remote is newer and from different device
+      if (remote && remote._ts && (!local || !local._ts || remote._ts > local._ts + 2000)) {
+        window._state = remote;
+        localStorage.setItem('dpsheet_v2', JSON.stringify(remote));
+        if (typeof render === 'function') render();
+      }
+    }
+    window._externalUpdate = true;
+  });
+
+  onSnapshot(doc(db, 'users', USER_ID, 'data', 'history'), (snap) => {
+    if (snap.exists()) {
+      const remote = snap.data().entries || {};
+      localStorage.setItem('dpsheet_history_v2', JSON.stringify(remote));
+    }
+  });
+
+  onSnapshot(doc(db, 'users', USER_ID, 'data', 'lifelog'), (snap) => {
+    if (snap.exists()) {
+      const remote = snap.data().entries || [];
+      localStorage.setItem('dpsheet_lifelog_v1', JSON.stringify(remote));
+    }
+  });
+</script>
+</head>
+<body>
+
+
+<!-- END OF DAY REVIEW OVERLAY -->
+<div id="eod-overlay">
+  <div class="eod-inner">
+    <div class="eod-header">
+      <h2>Day not <span>complete.</span></h2>
+      <p id="eod-subtitle">You still have unfinished tasks.<br>Acknowledge them before moving forward.</p>
+    </div>
+    <div class="eod-score-row">
+      <span>Today's score</span>
+      <span class="eod-score-num" id="eod-score">0%</span>
+    </div>
+    <div class="eod-list" id="eod-list"></div>
+    <button class="btn-eod-continue" id="btn-eod-continue" onclick="closeEod()">I acknowledge my incomplete tasks. Continue.</button>
+  </div>
+</div>
+
+<!-- SHAME OVERLAY -->
+<div id="shame-overlay">
+  <div class="shame-title" id="shame-title">PUT YOUR PHONE DOWN.</div>
+  <div class="shame-reason" id="shame-reason"></div>
+  <div class="shame-timer mono" id="shame-timer">00:00</div>
+  <div class="shame-sub">Your phone stays here until the timer ends.<br>Use this time to reflect, make istighfar, or sit in silence.</div>
+  <button class="btn-shame-close" id="shame-close-btn" onclick="closeShame()">I have reflected. Continue.</button>
+</div>
+
+<div class="header">
+  <div class="header-left">
+    <h1>daily<br><span>progress.</span></h1>
+    <div class="date-str mono" id="date-str"></div>
+    <div id="sync-badge" style="font-size:11px;font-family:'DM Mono',monospace;color:var(--muted);margin-top:4px;letter-spacing:0.04em">⚡ syncing...</div>
+  </div>
+  <div class="streak-badge">
+    <div class="num mono" id="streak-num">0</div>
+    <div class="lbl">streak</div>
+  </div>
+</div>
+
+<!-- SCORE RING -->
+<div class="score-section">
+  <div class="score-ring-wrap">
+    <svg width="80" height="80" viewBox="0 0 80 80">
+      <circle class="score-ring-bg" cx="40" cy="40" r="33"/>
+      <circle class="score-ring-fill" id="score-ring" cx="40" cy="40" r="33"
+        stroke-dasharray="207.3" stroke-dashoffset="207.3"/>
+    </svg>
+    <div class="score-center">
+      <span class="score-pct" id="score-pct">0%</span>
+    </div>
+  </div>
+  <div class="score-info">
+    <h2 id="score-label">Today's Score</h2>
+    <p id="score-breakdown">Complete tasks to build your score.<br>Salah is 42% of your day.</p>
+  </div>
+</div>
+
+<!-- 7-DAY CHART -->
+<div class="chart-wrap">
+  <div class="chart-title">7-day score history</div>
+  <div class="chart-bars" id="chart-bars"></div>
+</div>
+
+<div class="complete-banner" id="complete-banner">✦ perfect day — may Allah accept it from you ✦</div>
+
+<!-- SALAH -->
+<div class="section-label">salah · 5 prayers</div>
+<div class="task-list" id="prayer-list"></div>
+
+<!-- QADHA -->
+<div class="section-label" style="margin-top:1.5rem">qadha prayers · lifetime tracker</div>
+<div class="qadha-wrap" id="qadha-wrap"></div>
+
+<!-- QURAN -->
+<div class="section-label" style="margin-top:1.5rem">quran memorization</div>
+<div class="task-list">
+  <div class="task-card quran-card" id="quran-card">
+    <div class="quran-body">
+      <div class="quran-top">
+        <div class="task-name" style="flex:1">Memorize 1 page from the Quran</div>
+        <span class="task-badge badge-quran">audio required</span>
+      </div>
+      <div class="quran-upload-row">
+        <button class="btn-upload" onclick="document.getElementById('quran-file').click()">Upload Recording</button>
+        <input type="file" id="quran-file" accept="audio/*" style="display:none" onchange="handleAudio(event)"/>
+        <span class="audio-filename" id="audio-filename">no file selected</span>
+      </div>
+      <div id="audio-player-wrap" style="display:none">
+        <audio id="audio-player" controls class="audio-player"></audio>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+        <button class="btn-confirm-quran" id="btn-confirm-quran" onclick="confirmQuran()" disabled>Confirm & Complete</button>
+        <span id="quran-done-txt" style="display:none;font-size:12px;color:var(--accent);font-family:'DM Mono',monospace">✓ completed</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TRACKERS -->
+<div class="section-label" style="margin-top:1.5rem">nutrition trackers</div>
+<div class="task-list">
+  <div class="task-card tracker-card" id="protein-card">
+    <div class="tracker-header">
+      <span class="tracker-name">Protein intake</span>
+      <span class="tracker-val mono" id="protein-val">0 / 200 g</span>
+    </div>
+    <div class="tracker-bar-track"><div class="tracker-bar-fill" id="protein-bar" style="width:0%"></div></div>
+    <div class="tracker-input-row">
+      <input type="number" id="protein-input" min="0" max="300" placeholder="0" oninput="updateTracker('protein')" />
+      <span class="tracker-unit">grams eaten today</span>
+    </div>
+  </div>
+  <div class="task-card tracker-card" id="kcal-card">
+    <div class="tracker-header">
+      <span class="tracker-name">Calorie intake</span>
+      <span class="tracker-val mono" id="kcal-val">0 / 2200 kcal</span>
+    </div>
+    <div class="tracker-bar-track"><div class="tracker-bar-fill" id="kcal-bar" style="width:0%"></div></div>
+    <div class="tracker-input-row">
+      <input type="number" id="kcal-input" min="0" max="5000" placeholder="0" oninput="updateTracker('kcal')" />
+      <span class="tracker-unit">kcal eaten today</span>
+    </div>
+  </div>
+</div>
+
+<!-- ISTIGHFAR -->
+<div class="section-label" style="margin-top:1.5rem">dhikr</div>
+<div class="task-list">
+  <div class="task-card tracker-card" id="istighfar-card">
+    <div class="tracker-header">
+      <span class="tracker-name">Istighfar</span>
+      <span class="tracker-val mono" id="istighfar-val">0 / 1000</span>
+    </div>
+    <div class="tracker-bar-track"><div class="tracker-bar-fill" id="istighfar-bar" style="width:0%"></div></div>
+    <div class="tracker-input-row">
+      <input type="number" id="istighfar-input" min="0" max="1000" placeholder="0" oninput="updateTracker('istighfar')" />
+      <span class="tracker-unit">times said today</span>
+    </div>
+  </div>
+</div>
+
+<!-- YES/NO ACCOUNTABILITY -->
+<div class="section-label" style="margin-top:1.5rem">accountability</div>
+<div class="task-list" id="accountability-list"></div>
+
+<!-- CUSTOM TASKS -->
+<div class="section-label" style="margin-top:1.5rem">custom tasks</div>
+<div class="add-section">
+  <div class="add-row">
+    <input type="text" id="task-input" placeholder="Add a task..." maxlength="80" />
+    <input type="date" id="due-input" title="Optional due date" />
+    <button class="btn-add" onclick="addTask()">+ Add</button>
+  </div>
+</div>
+<div class="task-list" id="custom-task-list"></div>
+<div style="max-width:680px;margin:0.5rem auto;font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;text-align:center;display:none" id="custom-empty">no custom tasks yet</div>
+
+
+<!-- HISTORY -->
+<div class="section-label" style="margin-top:1.5rem">lifetime log</div>
+<div class="history-wrap" id="history-wrap"></div>
+
+<script>
+const STORE_KEY = 'dpsheet_v2';
+const HISTORY_KEY = 'dpsheet_history_v2';
+const today = () => new Date().toISOString().slice(0,10);
+
+const PRAYERS = ['Fajr','Duhr','Asr','Maghrib','Isha'];
+const ACCOUNTABILITY = [
+  { id:'money', label:'Did you make money today?', failLock: 60, failMsg:'You did not make money today. No excuses.' },
+  { id:'workout', label:'Did you work out today?', failLock: 0, failMsg:'Rest day noted.', restLogic: true },
+  { id:'pmo', label:'Did you consume porn or masturbate today?', failLock: 120, failMsg:'You failed your most important boundary.', invertFail: true }
+];
+
+// STATE
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || null; } catch { return null; }
+}
+function saveState(s) {
+  s._ts = Date.now();
+  localStorage.setItem(STORE_KEY, JSON.stringify(s));
+  if (window._firebaseReady) {
+    window._setDoc(window._doc(window._db, 'users', window._USER_ID, 'data', 'state'), s)
+      .catch(e => console.warn('Firebase save failed:', e));
+  }
+}
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || {}; } catch { return {}; }
+}
+function saveHistory(h) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+  if (window._firebaseReady) {
+    window._setDoc(window._doc(window._db, 'users', window._USER_ID, 'data', 'history'), { entries: h })
+      .catch(e => console.warn('Firebase history save failed:', e));
+  }
+}
+
+function initState() {
+  let s = loadState();
+  const t = today();
+  if (!s || s.date !== t) {
+    if (s && s.date) {
+      const h = loadHistory();
+      h[s.date] = computeScore(s);
+      saveHistory(h);
+      saveFullDay(s);
+    }
+    const carried = s ? s.customTasks.filter(c => !c.done).map(c => ({...c, done:false})) : [];
+    s = {
+      date: t,
+      prayers: { Fajr:false, Duhr:false, Asr:false, Maghrib:false, Isha:false },
+      quranDone: false,
+      protein: 0,
+      kcal: 0,
+      istighfar: 0,
+      money: null,
+      workout: null,
+      pmo: null,
+      customTasks: carried,
+      workoutHistory: s ? (s.workoutHistory || []) : [],
+      qadha: s ? (s.qadha || { Fajr:0, Duhr:0, Asr:0, Maghrib:0, Isha:0 }) : { Fajr:0, Duhr:0, Asr:0, Maghrib:0, Isha:0 }
+    };
+    saveState(s);
+  }
+  return s;
+}
+
+let state = initState();
+window._state = state;
+window._externalUpdate = false;
+
+// SCORING: 12 points max
+function computeScore(s) {
+  let pts = 0;
+  PRAYERS.forEach(p => { if (s.prayers[p]) pts += 1; });
+  if (s.quranDone) pts += 1;
+  pts += Math.min(1, (s.protein || 0) / 200);
+  pts += Math.min(1, (s.kcal || 0) / 2200);
+  if (s.money === true) pts += 1;
+  if (s.workout === true) pts += 1;
+  if (s.pmo === false) pts += 1; // pass = answered NO
+  pts += Math.min(1, (s.istighfar || 0) / 1000);
+  return Math.round((pts / 12) * 100);
+}
+
+function computeStreak() {
+  const h = loadHistory();
+  let streak = 0;
+  const todayScore = computeScore(state);
+  if (todayScore === 100) streak = 1;
+  let d = new Date(today());
+  d.setDate(d.getDate() - 1);
+  for (let i = 0; i < 365; i++) {
+    const key = d.toISOString().slice(0,10);
+    if (h[key] === 100) { streak++; d.setDate(d.getDate()-1); }
+    else break;
+  }
+  return streak;
+}
+
+// RENDER ALL
+function render() {
+  const t = today();
+  const now = new Date();
+  document.getElementById('date-str').textContent =
+    now.toLocaleDateString('en-CA', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  document.getElementById('streak-num').textContent = computeStreak();
+  const syncBadge = document.getElementById('sync-badge');
+  if (syncBadge) syncBadge.textContent = window._firebaseReady ? '☁ synced' : '⚡ local only';
+
+  // Score ring
+  const score = computeScore(state);
+  document.getElementById('score-pct').textContent = score + '%';
+  const ring = document.getElementById('score-ring');
+  const circ = 207.3;
+  ring.style.strokeDashoffset = circ - (circ * score / 100);
+  ring.className = 'score-ring-fill' + (score < 40 ? ' low' : score < 70 ? ' mid' : '');
+  const scoreLabel = score === 100 ? 'Perfect Day 🌙' : score >= 80 ? 'Strong Day' : score >= 50 ? 'Keep Going' : 'You Can Do Better';
+  document.getElementById('score-label').textContent = scoreLabel;
+
+  // Complete banner
+  const banner = document.getElementById('complete-banner');
+  if (score === 100) banner.classList.add('show'); else banner.classList.remove('show');
+
+  renderChart();
+  renderPrayers();
+  renderQadha();
+  renderQuran();
+  renderTrackers();
+  renderAccountability();
+  renderCustomTasks();
+  renderHistory();
+  saveFullDay(state);
+}
+
+function renderPrayers() {
+  const list = document.getElementById('prayer-list');
+  list.innerHTML = '';
+  PRAYERS.forEach(p => {
+    const done = state.prayers[p];
+    const div = document.createElement('div');
+    div.className = 'task-card bool-card' + (done ? ' done' : '');
+    div.innerHTML = `
+      <div class="task-check" onclick="togglePrayer('${p}')">
+        <svg class="check-inner" width="10" height="8" viewBox="0 0 10 8" fill="none">
+          <path d="M1 3.5L3.8 6.5L9 1" stroke="#0d0d0f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="task-name">Pray ${p}</span>
+      <span class="task-badge badge-prayer">salah</span>
+    `;
+    list.appendChild(div);
+  });
+}
+
+const QADHA_DEBT = { Fajr:2555, Duhr:2555, Asr:2555, Maghrib:2555, Isha:2555 };
+const QADHA_TOTAL = 12775;
+
+function renderQadha() {
+  const wrap = document.getElementById('qadha-wrap');
+  const qadha = state.qadha || { Fajr:0, Duhr:0, Asr:0, Maghrib:0, Isha:0 };
+  const totalMadeUp = PRAYERS.reduce((s,p) => s + (qadha[p]||0), 0);
+  const totalRemaining = QADHA_TOTAL - totalMadeUp;
+  const overallPct = Math.min(100, Math.round((totalMadeUp / QADHA_TOTAL) * 100));
+
+  let html = `
+    <div class="qadha-header">
+      <h3>Qadha Prayers</h3>
+      <div class="qadha-overall">
+        <div class="qadha-overall-bar-track">
+          <div class="qadha-overall-bar-fill" style="width:${overallPct}%"></div>
+        </div>
+        <span class="qadha-overall-pct">${totalMadeUp.toLocaleString()} / ${QADHA_TOTAL.toLocaleString()}</span>
+      </div>
+    </div>
+  `;
+
+  PRAYERS.forEach(p => {
+    const debt = QADHA_DEBT[p];
+    const madeUp = qadha[p] || 0;
+    const remaining = Math.max(0, debt - madeUp);
+    const pct = Math.min(100, Math.round((madeUp / debt) * 100));
+    const done = remaining === 0;
+    html += `
+      <div class="qadha-row">
+        <span class="qadha-prayer-name">${p}</span>
+        <div class="qadha-mini-bar-track">
+          <div class="qadha-mini-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <span class="qadha-remaining">${remaining.toLocaleString()} left</span>
+        ${done
+          ? `<span class="qadha-done-badge">complete</span>`
+          : `<div class="qadha-input-wrap">
+               <input type="number" id="qadha-input-${p}" min="0" max="${debt}" placeholder="0" value="" />
+               <button class="btn-qadha-log" onclick="logQadha('${p}')">+ log</button>
+             </div>`
+        }
+      </div>
+    `;
+  });
+
+  wrap.innerHTML = html;
+}
+
+function renderQuran() {
+  const card = document.getElementById('quran-card');
+  if (state.quranDone) {
+    card.classList.add('done');
+    document.getElementById('btn-confirm-quran').style.display = 'none';
+    document.getElementById('quran-done-txt').style.display = 'inline';
+  } else {
+    card.classList.remove('done');
+    document.getElementById('btn-confirm-quran').style.display = 'inline-block';
+    document.getElementById('quran-done-txt').style.display = 'none';
+  }
+}
+
+function renderTrackers() {
+  // protein
+  const pv = Math.min(state.protein || 0, 300);
+  document.getElementById('protein-input').value = pv || '';
+  document.getElementById('protein-val').textContent = pv + ' / 200 g';
+  document.getElementById('protein-bar').style.width = Math.min(100, Math.round(pv/200*100)) + '%';
+
+  // kcal
+  const kv = Math.min(state.kcal || 0, 5000);
+  document.getElementById('kcal-input').value = kv || '';
+  document.getElementById('kcal-val').textContent = kv + ' / 2200 kcal';
+  document.getElementById('kcal-bar').style.width = Math.min(100, Math.round(kv/2200*100)) + '%';
+
+  // istighfar
+  const iv = Math.min(state.istighfar || 0, 1000);
+  document.getElementById('istighfar-input').value = iv || '';
+  document.getElementById('istighfar-val').textContent = iv + ' / 1000';
+  document.getElementById('istighfar-bar').style.width = Math.min(100, Math.round(iv/1000*100)) + '%';
+}
+
+function renderAccountability() {
+  const list = document.getElementById('accountability-list');
+  list.innerHTML = '';
+  ACCOUNTABILITY.forEach(item => {
+    const val = state[item.id];
+    const div = document.createElement('div');
+    div.className = 'task-card yesno-card';
+    // pmo: fail = yes. others: fail = no
+    const isFail = item.invertFail ? val === true : val === false;
+    if (isFail) div.classList.add('failed');
+    const yesActive = val === true ? 'active' : '';
+    const noActive = val === false ? 'active' : '';
+    div.innerHTML = `
+      <div class="yesno-body">
+        <span class="task-name">${item.label}</span>
+        <div class="yesno-btns">
+          <button class="btn-yn yes ${yesActive}" onclick="setYesNo('${item.id}', true)">YES</button>
+          <button class="btn-yn no ${noActive}" onclick="setYesNo('${item.id}', false)">NO</button>
+        </div>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function renderCustomTasks() {
+  const list = document.getElementById('custom-task-list');
+  const empty = document.getElementById('custom-empty');
+  list.innerHTML = '';
+  const t = today();
+  if (!state.customTasks.length) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  state.customTasks.forEach((task, i) => {
+    const isOverdue = !task.done && task.due && task.due < t;
+    const isDueToday = !task.done && task.due && task.due === t;
+    const div = document.createElement('div');
+    div.className = 'custom-task' + (task.done ? ' done' : '') + (isOverdue ? ' overdue' : '') + (isDueToday ? ' due-today' : '');
+    let dueHtml = '';
+    if (task.due) {
+      const dStr = new Date(task.due+'T00:00:00').toLocaleDateString('en-CA',{month:'short',day:'numeric'});
+      if (isOverdue) dueHtml = `<div class="task-due due-overdue">⚠ overdue · ${dStr}</div>`;
+      else if (isDueToday) dueHtml = `<div class="task-due due-today-txt">due today · ${dStr}</div>`;
+      else dueHtml = `<div class="task-due due-future">due ${dStr}</div>`;
+    }
+    div.innerHTML = `
+      <div class="task-check" onclick="toggleCustom(${i})">
+        <svg class="check-inner" width="10" height="8" viewBox="0 0 10 8" fill="none">
+          <path d="M1 3.5L3.8 6.5L9 1" stroke="#0d0d0f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="task-body">
+        <div class="task-name2">${escHtml(task.name)}</div>
+        ${dueHtml}
+      </div>
+      <button class="btn-edit" onclick="startEdit(${i})">edit</button>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function renderChart() {
+  const h = loadHistory();
+  const container = document.getElementById('chart-bars');
+  container.innerHTML = '';
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0,10);
+    const isToday = key === today();
+    const label = d.toLocaleDateString('en-CA',{weekday:'short'}).slice(0,2).toUpperCase();
+    let pct = isToday ? computeScore(state) : (h[key] !== undefined ? h[key] : -1);
+    const height = pct < 0 ? 4 : Math.max(4, Math.round((pct/100)*64));
+    const barClass = isToday ? 'today' : (pct > 0 ? 'partial' : '');
+    const col = document.createElement('div');
+    col.className = 'chart-col';
+    col.innerHTML = `
+      <div class="chart-bar ${barClass}" style="height:${height}px" title="${pct<0?'no data':pct+'%'}"></div>
+      <div class="chart-day ${isToday?'today-lbl':''}">${label}</div>
+    `;
+    container.appendChild(col);
+  }
+}
+
+// ACTIONS
+function togglePrayer(p) {
+  state.prayers[p] = !state.prayers[p];
+  saveState(state); window._state = state; render();
+}
+
+function logQadha(p) {
+  const inp = document.getElementById('qadha-input-' + p);
+  const val = Math.max(0, parseInt(inp.value) || 0);
+  if (!val) { inp.focus(); return; }
+  const debt = QADHA_DEBT[p];
+  if (!state.qadha) state.qadha = { Fajr:0, Duhr:0, Asr:0, Maghrib:0, Isha:0 };
+  state.qadha[p] = Math.min(debt, (state.qadha[p] || 0) + val);
+  saveState(state); window._state = state; render();
+}
+
+function handleAudio(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  document.getElementById('audio-player').src = url;
+  document.getElementById('audio-player-wrap').style.display = 'block';
+  document.getElementById('audio-filename').textContent = file.name;
+  document.getElementById('btn-confirm-quran').disabled = false;
+}
+
+function confirmQuran() {
+  state.quranDone = true;
+  saveState(state); window._state = state; render();
+}
+
+function updateTracker(type) {
+  const map = { protein: {input:'protein-input', max:300, key:'protein'}, kcal: {input:'kcal-input', max:5000, key:'kcal'}, istighfar: {input:'istighfar-input', max:1000, key:'istighfar'} };
+  const cfg = map[type];
+  const val = Math.max(0, Math.min(cfg.max, parseInt(document.getElementById(cfg.input).value) || 0));
+  state[cfg.key] = val;
+  saveState(state); window._state = state; render();
+}
+
+// WORKOUT REST LOGIC — no more than 1 "no" every 3 days
+function workoutRestCount() {
+  const h = state.workoutHistory || [];
+  const t = today();
+  const threeDaysAgo = new Date(); threeDaysAgo.setDate(threeDaysAgo.getDate()-2);
+  const cutoff = threeDaysAgo.toISOString().slice(0,10);
+  return h.filter(d => d >= cutoff && d < t).length;
+}
+
+function setYesNo(id, val) {
+  if (id === 'workout' && val === false) {
+    const restCount = workoutRestCount();
+    if (restCount >= 1) {
+      triggerShame(60, 'You already had a rest day in the last 3 days. No excuses — get moving.', 'MISSED WORKOUT');
+    } else {
+      const h = state.workoutHistory || [];
+      h.push(today());
+      state.workoutHistory = h;
+    }
+  }
+  if (id === 'money' && val === false) {
+    triggerShame(60, 'You did not make money today. Think about why. Fix it tomorrow.', 'NO INCOME TODAY');
+  }
+  if (id === 'pmo' && val === true) {
+    triggerShame(120, 'You broke your most important commitment. Make istighfar. Come back stronger.', 'YOU FAILED TODAY');
+  }
+  state[id] = val;
+  saveState(state); window._state = state; render();
+}
+
+function toggleCustom(i) {
+  state.customTasks[i].done = !state.customTasks[i].done;
+  saveState(state); window._state = state; render();
+}
+
+function addTask() {
+  const input = document.getElementById('task-input');
+  const dueInput = document.getElementById('due-input');
+  const name = input.value.trim();
+  if (!name) { input.focus(); return; }
+  state.customTasks.push({ name, due: dueInput.value || null, done: false, id: Date.now() });
+  saveState(state);
+  input.value = ''; dueInput.value = '';
+  input.focus(); render();
+}
+
+function startEdit(i) {
+  const items = document.getElementById('custom-task-list').querySelectorAll('.custom-task');
+  const div = items[i];
+  const task = state.customTasks[i];
+  div.innerHTML = `
+    <div class="task-check" style="opacity:0.3;pointer-events:none">
+      <svg class="check-inner" width="10" height="8" viewBox="0 0 10 8" fill="none">
+        <path d="M1 3.5L3.8 6.5L9 1" stroke="#0d0d0f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="edit-row">
+      <input type="text" id="edit-name-${i}" value="${escHtml(task.name)}" maxlength="80"/>
+      <input type="date" id="edit-due-${i}" value="${task.due||''}"/>
+      <button class="btn-save" onclick="saveEdit(${i})">save</button>
+    </div>
+  `;
+  const inp = document.getElementById('edit-name-'+i);
+  inp.focus(); inp.select();
+  inp.addEventListener('keydown', e => { if(e.key==='Enter') saveEdit(i); if(e.key==='Escape') render(); });
+}
+
+function saveEdit(i) {
+  const n = document.getElementById('edit-name-'+i);
+  const d = document.getElementById('edit-due-'+i);
+  const name = n ? n.value.trim() : '';
+  if (!name) { n && n.focus(); return; }
+  state.customTasks[i].name = name;
+  state.customTasks[i].due = d && d.value ? d.value : null;
+  saveState(state); window._state = state; render();
+}
+
+// SHAME TIMER
+let shameInterval = null;
+function triggerShame(minutes, reason, title) {
+  const overlay = document.getElementById('shame-overlay');
+  document.getElementById('shame-title').textContent = title || 'PUT YOUR PHONE DOWN.';
+  document.getElementById('shame-reason').textContent = reason;
+  overlay.classList.add('active');
+  document.getElementById('shame-close-btn').style.display = 'none';
+  let secs = minutes * 60;
+  function tick() {
+    const m = String(Math.floor(secs/60)).padStart(2,'0');
+    const s = String(secs%60).padStart(2,'0');
+    document.getElementById('shame-timer').textContent = m + ':' + s;
+    if (secs <= 0) {
+      clearInterval(shameInterval);
+      document.getElementById('shame-timer').textContent = '00:00';
+      document.getElementById('shame-close-btn').style.display = 'inline-block';
+    }
+    secs--;
+  }
+  tick();
+  shameInterval = setInterval(tick, 1000);
+}
+function closeShame() {
+  document.getElementById('shame-overlay').classList.remove('active');
+  clearInterval(shameInterval);
+}
+
+
+// FULL LIFETIME LOG
+const LOG_KEY = 'dpsheet_lifelog_v1';
+function loadLog() { try { return JSON.parse(localStorage.getItem(LOG_KEY)) || []; } catch { return []; } }
+function saveLog(l) {
+  localStorage.setItem(LOG_KEY, JSON.stringify(l));
+  if (window._firebaseReady) {
+    window._setDoc(window._doc(window._db, 'users', window._USER_ID, 'data', 'lifelog'), { entries: l })
+      .catch(e => console.warn('Firebase log save failed:', e));
+  }
+}
+
+function saveFullDay(s) {
+  const log = loadLog();
+  const idx = log.findIndex(e => e.date === s.date);
+  const entry = {
+    date: s.date,
+    score: computeScore(s),
+    prayers: { ...s.prayers },
+    quranDone: s.quranDone,
+    protein: s.protein || 0,
+    kcal: s.kcal || 0,
+    istighfar: s.istighfar || 0,
+    money: s.money,
+    workout: s.workout,
+    pmo: s.pmo,
+    customTasks: (s.customTasks || []).map(t => ({ name: t.name, done: t.done })),
+    qadha: { ...s.qadha }
+  };
+  if (idx >= 0) log[idx] = entry; else log.unshift(entry);
+  saveLog(log);
+}
+
+// EOD REVIEW
+function getIncompleteSummary(s) {
+  const items = [];
+  const PRAYER_NAMES = ['Fajr','Duhr','Asr','Maghrib','Isha'];
+  PRAYER_NAMES.forEach(p => { if (!s.prayers[p]) items.push('Pray ' + p); });
+  if (!s.quranDone) items.push('Memorize 1 page from the Quran');
+  if ((s.protein || 0) < 200) items.push('Protein: ' + (s.protein||0) + ' / 200 g');
+  if ((s.kcal || 0) < 2200) items.push('Calories: ' + (s.kcal||0) + ' / 2200 kcal');
+  if ((s.istighfar || 0) < 1000) items.push('Istighfar: ' + (s.istighfar||0) + ' / 1000');
+  if (s.money === null) items.push('Did you make money today? (unanswered)');
+  if (s.workout === null) items.push('Did you work out today? (unanswered)');
+  if (s.pmo === null) items.push('PMO accountability (unanswered)');
+  (s.customTasks || []).forEach(t => { if (!t.done) items.push(t.name); });
+  return items;
+}
+
+function checkEod() {
+  const incomplete = getIncompleteSummary(state);
+  if (incomplete.length === 0) return;
+  const overlay = document.getElementById('eod-overlay');
+  const score = computeScore(state);
+  document.getElementById('eod-score').textContent = score + '%';
+  const list = document.getElementById('eod-list');
+  list.innerHTML = incomplete.map(i => `<div class="eod-item"><div class="eod-dot"></div>${escHtml(i)}</div>`).join('');
+  const btn = document.getElementById('btn-eod-continue');
+  btn.className = 'btn-eod-continue';
+  document.getElementById('eod-subtitle').textContent = incomplete.length + ' task' + (incomplete.length > 1 ? 's' : '') + ' unfinished. Acknowledge them before continuing.';
+  overlay.classList.add('active');
+}
+
+function closeEod() {
+  document.getElementById('eod-overlay').classList.remove('active');
+}
+
+// RENDER HISTORY
+function renderHistory() {
+  const log = loadLog();
+  const wrap = document.getElementById('history-wrap');
+  if (!log.length) {
+    wrap.innerHTML = '<div class="history-empty">no history yet — come back tomorrow</div>';
+    return;
+  }
+  wrap.innerHTML = log.map((entry, idx) => {
+    const sc = entry.score || 0;
+    const tier = sc >= 80 ? 'high' : sc >= 50 ? 'mid' : 'low';
+    const dateStr = new Date(entry.date + 'T00:00:00').toLocaleDateString('en-CA', {weekday:'short', year:'numeric', month:'short', day:'numeric'});
+    const PNAMES = ['Fajr','Duhr','Asr','Maghrib','Isha'];
+    const prayerPips = PNAMES.map(p => `<span class="pip ${entry.prayers && entry.prayers[p] ? 'pip-done' : 'pip-miss'}">${p}</span>`).join('');
+    const customDone = (entry.customTasks || []).filter(t => t.done).length;
+    const customTotal = (entry.customTasks || []).length;
+    const qadhaTotal = entry.qadha ? Object.values(entry.qadha).reduce((a,b) => a+b, 0) : 0;
+    return `
+      <div class="history-day" id="hday-${idx}">
+        <div class="history-day-header" onclick="toggleHistoryDay(${idx})">
+          <span class="history-date">${dateStr}</span>
+          <div class="history-bar-track"><div class="history-bar-fill hbf-${tier}" style="width:${sc}%"></div></div>
+          <span class="history-pct hpct-${tier}">${sc}%</span>
+          <span class="history-chevron">▼</span>
+        </div>
+        <div class="history-detail">
+          <div class="hcell" style="margin-bottom:8px">
+            <div class="hc-lbl">SALAH</div>
+            <div class="h-prayer-pips">${prayerPips}</div>
+          </div>
+          <div class="history-grid">
+            <div class="hcell"><div class="hc-lbl">QURAN</div><div class="hc-val ${entry.quranDone ? 'hc-pass' : 'hc-fail'}">${entry.quranDone ? 'completed' : 'missed'}</div></div>
+            <div class="hcell"><div class="hc-lbl">PROTEIN</div><div class="hc-val ${(entry.protein||0) >= 200 ? 'hc-pass' : 'hc-warn'}">${entry.protein||0} / 200 g</div></div>
+            <div class="hcell"><div class="hc-lbl">CALORIES</div><div class="hc-val ${(entry.kcal||0) >= 2200 ? 'hc-pass' : 'hc-warn'}">${entry.kcal||0} / 2200</div></div>
+            <div class="hcell"><div class="hc-lbl">ISTIGHFAR</div><div class="hc-val ${(entry.istighfar||0) >= 1000 ? 'hc-pass' : 'hc-warn'}">${entry.istighfar||0} / 1000</div></div>
+            <div class="hcell"><div class="hc-lbl">MONEY</div><div class="hc-val ${entry.money === true ? 'hc-pass' : entry.money === false ? 'hc-fail' : 'hc-neutral'}">${entry.money === true ? 'yes' : entry.money === false ? 'no' : '—'}</div></div>
+            <div class="hcell"><div class="hc-lbl">WORKOUT</div><div class="hc-val ${entry.workout === true ? 'hc-pass' : entry.workout === false ? 'hc-warn' : 'hc-neutral'}">${entry.workout === true ? 'yes' : entry.workout === false ? 'rest day' : '—'}</div></div>
+            <div class="hcell"><div class="hc-lbl">PMO CLEAN</div><div class="hc-val ${entry.pmo === false ? 'hc-pass' : entry.pmo === true ? 'hc-fail' : 'hc-neutral'}">${entry.pmo === false ? 'clean' : entry.pmo === true ? 'failed' : '—'}</div></div>
+            <div class="hcell"><div class="hc-lbl">QADHA LOGGED</div><div class="hc-val hc-neutral">${qadhaTotal} prayers</div></div>
+            ${customTotal > 0 ? `<div class="hcell"><div class="hc-lbl">CUSTOM TASKS</div><div class="hc-val hc-neutral">${customDone} / ${customTotal}</div></div>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleHistoryDay(idx) {
+  const el = document.getElementById('hday-' + idx);
+  if (el) el.classList.toggle('open');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.getElementById('task-input').addEventListener('keydown', e => { if(e.key==='Enter') addTask(); });
+document.getElementById('due-input').min = today();
+
+setInterval(() => {
+  if (state.date !== today()) { state = initState(); render(); }
+}, 60000);
+
+render();
+checkEod();
+</script>
+</body>
+</html>
