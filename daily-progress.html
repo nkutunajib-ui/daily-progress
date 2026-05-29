@@ -584,59 +584,84 @@ body {
   .qadha-remaining { display: none; }
 }
 </style>
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyBG5HJ34VxYf80Kq3Sb_M4DqofgPehd1cM",
-    authDomain: "daily-progress-a3dc7.firebaseapp.com",
-    projectId: "daily-progress-a3dc7",
-    storageBucket: "daily-progress-a3dc7.firebasestorage.app",
-    messagingSenderId: "738373200458",
-    appId: "1:738373200458:web:6554d927528420a3d254b3"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const USER_ID = 'najib';
-
-  window._db = db;
-  window._doc = doc;
-  window._setDoc = setDoc;
-  window._getDoc = getDoc;
-  window._onSnapshot = onSnapshot;
-  window._USER_ID = USER_ID;
-  window._firebaseReady = true;
-
-  // Listen for real-time changes from other devices
-  onSnapshot(doc(db, 'users', USER_ID, 'data', 'state'), (snap) => {
-    if (snap.exists() && window._externalUpdate) {
-      const remote = snap.data();
-      const local = window._state;
-      // Only update if remote is newer and from different device
-      if (remote && remote._ts && (!local || !local._ts || remote._ts > local._ts + 2000)) {
-        window._state = remote;
-        localStorage.setItem('dpsheet_v2', JSON.stringify(remote));
-        if (typeof render === 'function') render();
-      }
-    }
-    window._externalUpdate = true;
+<script>
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = res;
+    s.onerror = rej;
+    document.head.appendChild(s);
   });
+}
 
-  onSnapshot(doc(db, 'users', USER_ID, 'data', 'history'), (snap) => {
-    if (snap.exists()) {
-      const remote = snap.data().entries || {};
-      localStorage.setItem('dpsheet_history_v2', JSON.stringify(remote));
-    }
-  });
+async function initFirebase() {
+  try {
+    await loadScript('https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-app-compat.js');
+    await loadScript('https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-firestore-compat.js');
 
-  onSnapshot(doc(db, 'users', USER_ID, 'data', 'lifelog'), (snap) => {
-    if (snap.exists()) {
-      const remote = snap.data().entries || [];
-      localStorage.setItem('dpsheet_lifelog_v1', JSON.stringify(remote));
-    }
-  });
+    const firebaseConfig = {
+      apiKey: "AIzaSyBG5HJ34VxYf80Kq3Sb_M4DqofgPehd1cM",
+      authDomain: "daily-progress-a3dc7.firebaseapp.com",
+      projectId: "daily-progress-a3dc7",
+      storageBucket: "daily-progress-a3dc7.firebasestorage.app",
+      messagingSenderId: "738373200458",
+      appId: "1:738373200458:web:6554d927528420a3d254b3"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const USER_ID = 'najib';
+
+    window._db = db;
+    window._USER_ID = USER_ID;
+    window._firebaseReady = true;
+
+    const badge = document.getElementById('sync-badge');
+    if (badge) badge.textContent = '☁ connecting...';
+
+    db.collection('users').doc(USER_ID).collection('data').doc('state')
+      .onSnapshot((snap) => {
+        if (snap.exists && window._externalUpdate) {
+          const remote = snap.data();
+          const local = window._state;
+          if (remote && remote._ts && (!local || !local._ts || remote._ts > local._ts + 2000)) {
+            window._state = remote;
+            localStorage.setItem('dpsheet_v2', JSON.stringify(remote));
+            if (typeof render === 'function') render();
+          }
+        }
+        window._externalUpdate = true;
+        window._firebaseSynced = true;
+        const b = document.getElementById('sync-badge');
+        if (b) b.textContent = '☁ synced';
+      }, (err) => {
+        const b = document.getElementById('sync-badge');
+        if (b) b.textContent = '⚠ ' + err.code;
+      });
+
+    db.collection('users').doc(USER_ID).collection('data').doc('history')
+      .onSnapshot((snap) => {
+        if (snap.exists) {
+          localStorage.setItem('dpsheet_history_v2', JSON.stringify(snap.data().entries || {}));
+        }
+      });
+
+    db.collection('users').doc(USER_ID).collection('data').doc('lifelog')
+      .onSnapshot((snap) => {
+        if (snap.exists) {
+          localStorage.setItem('dpsheet_lifelog_v1', JSON.stringify(snap.data().entries || []));
+        }
+      });
+
+  } catch(e) {
+    console.error('Firebase init error:', e);
+    const b = document.getElementById('sync-badge');
+    if (b) b.textContent = '⚠ offline';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', initFirebase);
 </script>
 </head>
 <body>
@@ -822,7 +847,9 @@ function saveState(s) {
   s._ts = Date.now();
   localStorage.setItem(STORE_KEY, JSON.stringify(s));
   if (window._firebaseReady) {
-    window._setDoc(window._doc(window._db, 'users', window._USER_ID, 'data', 'state'), s)
+    window._db.collection('users').doc(window._USER_ID).collection('data').doc('state')
+      .set(s, { merge: true })
+      .then(() => { window._firebaseSynced = true; const b = document.getElementById('sync-badge'); if(b) b.textContent = '☁ synced'; })
       .catch(e => console.warn('Firebase save failed:', e));
   }
 }
@@ -832,7 +859,8 @@ function loadHistory() {
 function saveHistory(h) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
   if (window._firebaseReady) {
-    window._setDoc(window._doc(window._db, 'users', window._USER_ID, 'data', 'history'), { entries: h })
+    window._db.collection('users').doc(window._USER_ID).collection('data').doc('history')
+      .set({ entries: h }, { merge: true })
       .catch(e => console.warn('Firebase history save failed:', e));
   }
 }
@@ -908,7 +936,11 @@ function render() {
     now.toLocaleDateString('en-CA', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
   document.getElementById('streak-num').textContent = computeStreak();
   const syncBadge = document.getElementById('sync-badge');
-  if (syncBadge) syncBadge.textContent = window._firebaseReady ? '☁ synced' : '⚡ local only';
+  if (syncBadge) {
+    if (window._firebaseSynced) syncBadge.textContent = '☁ synced';
+    else if (window._firebaseReady) syncBadge.textContent = '☁ connecting...';
+    else syncBadge.textContent = '⚡ local only';
+  }
 
   // Score ring
   const score = computeScore(state);
@@ -1270,7 +1302,8 @@ function loadLog() { try { return JSON.parse(localStorage.getItem(LOG_KEY)) || [
 function saveLog(l) {
   localStorage.setItem(LOG_KEY, JSON.stringify(l));
   if (window._firebaseReady) {
-    window._setDoc(window._doc(window._db, 'users', window._USER_ID, 'data', 'lifelog'), { entries: l })
+    window._db.collection('users').doc(window._USER_ID).collection('data').doc('lifelog')
+      .set({ entries: l }, { merge: true })
       .catch(e => console.warn('Firebase log save failed:', e));
   }
 }
