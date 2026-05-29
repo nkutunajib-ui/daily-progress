@@ -622,19 +622,23 @@ async function initFirebase() {
 
     db.collection('users').doc(USER_ID).collection('data').doc('state')
       .onSnapshot((snap) => {
-        if (snap.exists && window._externalUpdate) {
-          const remote = snap.data();
-          const local = window._state;
-          if (remote && remote._ts && (!local || !local._ts || remote._ts > local._ts + 2000)) {
+        window._firebaseSynced = true;
+        const b = document.getElementById('sync-badge');
+        if (b) b.textContent = '☁ synced';
+        if (!snap.exists) return;
+        const remote = snap.data();
+        if (!remote || !remote._ts) return;
+        const local = window._state;
+        // If remote is newer than what we have locally, update
+        if (!local || !local._ts || remote._ts > local._ts) {
+          // Only re-render if this change came from another device
+          const isSameDevice = local && local._ts && remote._ts === local._ts;
+          if (!isSameDevice) {
             window._state = remote;
             localStorage.setItem('dpsheet_v2', JSON.stringify(remote));
             if (typeof render === 'function') render();
           }
         }
-        window._externalUpdate = true;
-        window._firebaseSynced = true;
-        const b = document.getElementById('sync-badge');
-        if (b) b.textContent = '☁ synced';
       }, (err) => {
         const b = document.getElementById('sync-badge');
         if (b) b.textContent = '⚠ ' + err.code;
