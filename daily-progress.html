@@ -653,16 +653,18 @@ async function initFirebase() {
         const remote = snap.data();
         if (!remote || !remote._ts) return;
         const local = window._state;
-        // If remote is newer than what we have locally, update
-        if (!local || !local._ts || remote._ts > local._ts) {
-          // Only re-render if this change came from another device
-          const isSameDevice = local && local._ts && remote._ts === local._ts;
-          if (!isSameDevice) {
-            window._state = remote;
-            localStorage.setItem('dpsheet_v2', JSON.stringify(remote));
-            if (typeof render === 'function') render();
-          }
+        // Always use remote if it's newer or if we just loaded the page
+        const justLoaded = !window._firstSyncDone;
+        const remoteNewer = !local || !local._ts || remote._ts > local._ts;
+        const isSameDevice = local && local._ts && remote._ts === local._ts;
+        if ((justLoaded && remoteNewer) || (!isSameDevice && remoteNewer)) {
+          window._state = remote;
+          // merge steps if not in remote
+          if (window._state.steps === undefined) window._state.steps = 0;
+          localStorage.setItem('dpsheet_v2', JSON.stringify(window._state));
+          if (typeof render === 'function') render();
         }
+        window._firstSyncDone = true;
       }, (err) => {
         const b = document.getElementById('sync-badge');
         if (b) b.textContent = '⚠ ' + err.code;
@@ -937,7 +939,7 @@ function initState() {
       customTasks: carried,
       workoutHistory: s ? (s.workoutHistory || []) : [],
       qadha: s ? (s.qadha || { Fajr:0, Duhr:0, Asr:0, Maghrib:0, Isha:0 }) : { Fajr:0, Duhr:0, Asr:0, Maghrib:0, Isha:0 },
-      steps: s ? (s.steps || 0) : 0
+      steps: (s && s.steps !== undefined) ? s.steps : 0
     };
     saveState(s);
   }
