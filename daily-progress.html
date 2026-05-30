@@ -644,6 +644,24 @@ async function initFirebase() {
     const badge = document.getElementById('sync-badge');
     if (badge) badge.textContent = '☁ connecting...';
 
+    // IMMEDIATELY fetch current state from Firebase on load
+    db.collection('users').doc(USER_ID).collection('data').doc('state').get()
+      .then((snap) => {
+        if (snap.exists) {
+          const remote = snap.data();
+          if (remote && remote._ts) {
+            const local = window._state;
+            if (!local || !local._ts || remote._ts >= local._ts) {
+              window._state = remote;
+              if (window._state.steps === undefined) window._state.steps = 0;
+              localStorage.setItem('dpsheet_v2', JSON.stringify(window._state));
+              if (typeof render === 'function') render();
+            }
+          }
+        }
+      })
+      .catch(e => console.warn('Initial fetch error:', e));
+
     db.collection('users').doc(USER_ID).collection('data').doc('state')
       .onSnapshot((snap) => {
         window._firebaseSynced = true;
