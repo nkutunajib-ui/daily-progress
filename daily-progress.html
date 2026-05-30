@@ -644,24 +644,6 @@ async function initFirebase() {
     const badge = document.getElementById('sync-badge');
     if (badge) badge.textContent = '☁ connecting...';
 
-    // IMMEDIATELY fetch current state from Firebase on load
-    db.collection('users').doc(USER_ID).collection('data').doc('state').get()
-      .then((snap) => {
-        if (snap.exists) {
-          const remote = snap.data();
-          if (remote && remote._ts) {
-            const local = window._state;
-            if (!local || !local._ts || remote._ts >= local._ts) {
-              window._state = remote;
-              if (window._state.steps === undefined) window._state.steps = 0;
-              localStorage.setItem('dpsheet_v2', JSON.stringify(window._state));
-              if (typeof render === 'function') render();
-            }
-          }
-        }
-      })
-      .catch(e => console.warn('Initial fetch error:', e));
-
     db.collection('users').doc(USER_ID).collection('data').doc('state')
       .onSnapshot((snap) => {
         window._firebaseSynced = true;
@@ -1544,6 +1526,30 @@ setInterval(() => {
 
 render();
 checkEod();
+
+// Fetch latest data from Firebase after app is ready
+function fetchFromFirebase() {
+  if (!window._firebaseReady || !window._db) {
+    setTimeout(fetchFromFirebase, 500);
+    return;
+  }
+  window._db.collection('users').doc(window._USER_ID).collection('data').doc('state').get()
+    .then((snap) => {
+      if (!snap.exists) return;
+      const remote = snap.data();
+      if (!remote || !remote._ts) return;
+      const local = state;
+      if (!local || !local._ts || remote._ts >= local._ts) {
+        state = remote;
+        if (state.steps === undefined) state.steps = 0;
+        window._state = state;
+        localStorage.setItem(STORE_KEY, JSON.stringify(state));
+        render();
+      }
+    })
+    .catch(e => console.warn('Firebase fetch error:', e));
+}
+fetchFromFirebase();
 </script>
 </body>
 </html>
